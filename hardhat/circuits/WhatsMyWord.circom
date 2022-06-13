@@ -5,7 +5,7 @@ include "../node_modules/circomlib/circuits/bitify.circom";
 include "../node_modules/circomlib/circuits/poseidon.circom";
 include "../node_modules/circomlib/circuits/gates.circom";
 
-template HitAndBlow() {
+template WhatsMyWord() {
     // Public inputs
     signal input pubGuessA;
     signal input pubGuessB;
@@ -23,7 +23,6 @@ template HitAndBlow() {
 
     signal input pubNumHit;
     signal input pubNumBlow;
-    signal input pubNumExists;
     signal input pubSolnHash;
 
     // Private inputs
@@ -73,16 +72,16 @@ template HitAndBlow() {
     var blow = 0;
     component equalHB[36];
 
-    for (j=0; j<4; j++) {
-        for (k=0; k<4; k++) {
+    for (j=0; j<6; j++) {
+        for (k=0; k<6; k++) {
             if(!isEqual99[k]) {
-              equalHB[4*j+k] = IsEqual();
-              equalHB[4*j+k].in[0] <== soln[j];
-              equalHB[4*j+k].in[1] <== guess[k];
-              blow += equalHB[4*j+k].out;
+              equalHB[6*j+k] = IsEqual();
+              equalHB[6*j+k].in[0] <== soln[j];
+              equalHB[6*j+k].in[1] <== guess[k];
+              blow += equalHB[6*j+k].out;
               if (j == k) {
-                  hit += equalHB[4*j+k].out;
-                  blow -= equalHB[4*j+k].out;
+                  hit += equalHB[6*j+k].out;
+                  blow -= equalHB[6*j+k].out;
               }
             }
         }
@@ -103,17 +102,70 @@ template HitAndBlow() {
     // figuring out how to compare partial pubSolnHash with privSolnHash.
     
     // // Verify that the hash of the private solution matches pubSolnHash
-    // component poseidon = Poseidon(6);
-    // poseidon.inputs[0] <== privSalt;
-    // poseidon.inputs[1] <== privSolnA;
-    // poseidon.inputs[2] <== privSolnB;
-    // poseidon.inputs[3] <== privSolnC;
-    // poseidon.inputs[4] <== privSolnD;
-    // poseidon.inputs[5] <== privSolnE;
-    // poseidon.inputs[6] <== privSolnF;
+    component poseidon = Poseidon(6);
+    
+    // the trick is that I will also pass which positions the opponent is trying to guess the rest will be 99.
+    // same in the case of private solution, i will hash those positions which being guessed.
+    component swithcer[6];
 
-    // solnHashOut <== poseidon.out;
-    // pubSolnHash === solnHashOut;
+    swithcer[0] = Swithcer();
+    swithcer[1] = Swithcer();
+    swithcer[2] = Swithcer();
+    swithcer[3] = Swithcer();
+    swithcer[4] = Swithcer();
+    swithcer[5] = Swithcer();
+
+    switcher[0].sel = isGuessA;
+    switcher[0].L = privSolnA;
+    switcher[0].R = 99;
+
+    switcher[1].sel = isGuessB;
+    switcher[1].L = privSolnB;
+    switcher[1].R = 99;
+
+    switcher[2].sel = isGuessC;
+    switcher[2].L = privSolnC;
+    switcher[2].R = 99;
+
+    switcher[3].sel = isGuessD;
+    switcher[3].L = privSolnD;
+    switcher[3].R = 99;
+
+    switcher[4].sel = isGuessE;
+    switcher[4].L = privSolnE;
+    switcher[4].R = 99;
+
+    switcher[5].sel = isGuessF;
+    switcher[5].L = privSolnF;
+    switcher[5].R = 99;
+
+
+    poseidon.inputs[0] <== privSalt;
+    poseidon.inputs[1] <== switcher[0].outR;
+    poseidon.inputs[2] <== switcher[1].outR;
+    poseidon.inputs[3] <== switcher[2].outR;
+    poseidon.inputs[4] <== switcher[3].outR;
+    poseidon.inputs[5] <== switcher[4].outR;
+    poseidon.inputs[6] <== switcher[5].outR;
+
+    solnHashOut <== poseidon.out;
+    pubSolnHash === solnHashOut;
  }
 
- component main {public [pubGuessA, pubGuessB, pubGuessC, pubGuessD, pubNumHit, pubNumBlow, pubSolnHash]} = HitAndBlow();
+ component main {public [
+    pubGuessA, 
+    pubGuessB, 
+    pubGuessC, 
+    pubGuessD, 
+    pubGuessE,
+    pubGuessF,
+    isGuessA,
+    isGuessB,
+    isGuessC,
+    isGuessD,
+    isGuessE,
+    isGuessF,
+    pubNumHit, 
+    pubNumBlow, 
+    pubSolnHash
+]} = HitAndBlow();
